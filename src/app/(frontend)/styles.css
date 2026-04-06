@@ -9,8 +9,8 @@
 html {
   font-size: 18px;
   line-height: 32px;
-
-  background: rgb(0, 0, 0);
+  background: #ffffff;
+  color: #000000;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -24,9 +24,9 @@ body {
   font-family: system-ui;
   font-size: 18px;
   line-height: 32px;
-
+  background: #ffffff;
+  color: #000000;
   margin: 0;
-  color: rgb(1000, 1000, 1000);
 
   @media (max-width: 1024px) {
     font-size: 15px;
@@ -90,11 +90,13 @@ svg {
 }
 
 .home {
+  background: #ffffff;
+  color: #000000;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   align-items: center;
-  height: 100vh;
+  min-height: 100vh;
   padding: 45px;
   max-width: 1024px;
   margin: 0 auto;
@@ -128,15 +130,15 @@ svg {
     }
 
     .admin {
-      color: rgb(0, 0, 0);
-      background: rgb(1000, 1000, 1000);
-      border: 1px solid rgb(0, 0, 0);
+      color: #ffffff;
+      background: #0066cc;
+      border: 1px solid #0066cc;
     }
 
     .docs {
-      color: rgb(1000, 1000, 1000);
-      background: rgb(0, 0, 0);
-      border: 1px solid rgb(1000, 1000, 1000);
+      color: #0066cc;
+      background: #ffffff;
+      border: 1px solid #0066cc;
     }
   }
 
@@ -157,8 +159,9 @@ svg {
     .codeLink {
       text-decoration: none;
       padding: 0 0.5rem;
-      background: rgb(60, 60, 60);
+      background: #f0f0f0;
       border-radius: 4px;
+      color: #0066cc;
     }
   }
 }
