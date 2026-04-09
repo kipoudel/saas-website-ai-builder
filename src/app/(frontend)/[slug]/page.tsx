@@ -1,88 +1,113 @@
-import { getPayload } from 'payload'
-import config from '@/payload.config'
-import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
 
-type PageParams = {
-  params: Promise<{ slug?: string }>
-}
+import { PayloadRedirects } from '@/components/PayloadRedirects'
+import configPromise from '@payload-config'
+import { getPayload, type RequiredDataFromCollectionSlug } from 'payload'
+import { draftMode } from 'next/headers'
+import React, { cache } from 'react'
+import { homeStatic } from '@/endpoints/seed/home-static'
 
-export default async function HomePage({ params }: PageParams) {
-  const { slug = 'home' } = await params
-  
-  try {
-    const payload = await getPayload({ config })
+import { RenderBlocks } from '@/blocks/RenderBlocks'
+import { RenderHero } from '@/heros/RenderHero'
+import { generateMeta } from '@/utilities/generateMeta'
+import PageClient from './page.client'
+import { LivePreviewListener } from '@/components/LivePreviewListener'
 
-    console.log('Looking for page with slug:', slug)
+export async function generateStaticParams() {
+  const payload = await getPayload({ config: configPromise })
+  const pages = await payload.find({
+    collection: 'pages',
+    draft: false,
+    limit: 1000,
+    overrideAccess: false,
+    pagination: false,
+    select: {
+      slug: true,
+    },
+  })
 
-    const pages = await payload.find({
-      collection: 'pages',
-      where: {
-        slug: {
-          equals: slug,
-        },
-      },
+  const params = pages.docs
+    ?.filter((doc) => {
+      return doc.slug !== 'home'
+    })
+    .map(({ slug }) => {
+      return { slug }
     })
 
-    console.log('Found pages:', pages.docs.length)
-
-    const page = pages.docs[0]
-
-    if (!page) {
-      console.log('No page found, returning 404')
-      notFound()
-    }
-
-    return (
-      <div className="container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
-        <h1 style={{ fontSize: '3rem', marginBottom: '2rem' }}>{page.title}</h1>
-        
-        {page.layout?.map((block: any, index: number) => {
-          if (block.blockType === 'hero') {
-            return (
-              <div key={index} style={{ marginBottom: '2rem', padding: '2rem', backgroundColor: '#f0f0f0', borderRadius: '8px' }}>
-                <h2 style={{ fontSize: '2rem' }}>{block.heading}</h2>
-                {block.subheading && <p style={{ fontSize: '1.2rem', marginTop: '0.5rem' }}>{block.subheading}</p>}
-              </div>
-            )
-          }
-          
-          if (block.blockType === 'content') {
-            return (
-              <div key={index} style={{ marginBottom: '2rem', lineHeight: '1.6' }}>
-                {block.richText ? (
-                  <div style={{ fontSize: '1rem', color: '#333' }}>
-                    {/* Render rich text content */}
-                    {block.richText.root?.children?.map((node: any, i: number) => {
-                      if (node.type === 'paragraph') {
-                        return (
-                          <p key={i} style={{ marginBottom: '1rem' }}>
-                            {node.children?.map((child: any, j: number) => (
-                              <span key={j}>{child.text}</span>
-                            ))}
-                          </p>
-                        )
-                      }
-                      return null
-                    })}
-                  </div>
-                ) : (
-                  'No content'
-                )}
-              </div>
-            )
-          }
-          
-          return null
-        })}
-      </div>
-    )
-  } catch (error) {
-    console.error('Error loading page:', error)
-    return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <h1>Error</h1>
-        <p>Failed to load page</p>
-      </div>
-    )
-  }
+  return params
 }
+
+type Args = {
+  params: Promise<{
+    slug?: string
+  }>
+}
+
+export default async function Page({ params: paramsPromise }: Args) {
+  const { isEnabled: draft } = await draftMode()
+  const { slug = 'home' } = await paramsPromise
+  // Decode to support slugs with special characters
+  const decodedSlug = decodeURIComponent(slug)
+  const url = '/' + decodedSlug
+  let page: RequiredDataFromCollectionSlug<'pages'> | null
+
+  page = await queryPageBySlug({
+    slug: decodedSlug,
+  })
+
+  // Remove this code once your website is seeded
+  if (!page && slug === 'home') {
+    page = homeStatic
+  }
+
+  if (!page) {
+    return <PayloadRedirects url={url} />
+  }
+
+  const { hero, layout } = page
+
+  return (
+    <article className="pt-16 pb-24">
+      <PageClient />
+      {/* Allows redirects for valid pages too */}
+      <PayloadRedirects disableNotFound url={url} />
+
+      {draft && <LivePreviewListener />}
+
+      <RenderHero {...hero} />
+      <RenderBlocks blocks={layout} />
+    </article>
+  )
+}
+
+export async function generateMetadata({ params: paramsPromise }: Args): Promise<Metadata> {
+  const { slug = 'home' } = await paramsPromise
+  // Decode to support slugs with special characters
+  const decodedSlug = decodeURIComponent(slug)
+  const page = await queryPageBySlug({
+    slug: decodedSlug,
+  })
+
+  return generateMeta({ doc: page })
+}
+
+const queryPageBySlug = cache(async ({ slug }: { slug: string }) => {
+  const { isEnabled: draft } = await draftMode()
+
+  const payload = await getPayload({ config: configPromise })
+
+  const result = await payload.find({
+    collection: 'pages',
+    draft,
+    limit: 1,
+    pagination: false,
+    overrideAccess: draft,
+    where: {
+      slug: {
+        equals: slug,
+      },
+    },
+  })
+
+  return result.docs?.[0] || null
+})
